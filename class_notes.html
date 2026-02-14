@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Class Notes</title>
+        <link rel="stylesheet" href="tailwind2.css">
+        <link rel="stylesheet" href="class_notes.css">
+</head>
+<body>
+                <!-- Hoverable left navigation -->
+                <aside class="left-nav" id="leftNav" aria-label="Main navigation">
+                    <nav>
+                        <ul>
+                            <li><a class="nav-link" href="index.html"><span class="nav-icon">🏠</span><span class="link-text">Home</span></a></li>
+                            <li><a class="nav-link" href="class_notes.html"><span class="nav-icon">📓</span><span class="link-text">Class Notes</span></a></li>
+                            <li><a class="nav-link" href="assignments.html"><span class="nav-icon">📝</span><span class="link-text">Assignments</span></a></li>
+                            <li><a class="nav-link" href="lab_notes.html"><span class="nav-icon">🔬</span><span class="link-text">Lab Notes</span></a></li>
+                            <li><a class="nava-link" href="previous_papers.html"><span class="nav-icon">📄</span><span class="link-text">Previous Papers</span></a></li>
+                            <li><a class="nav-link" href="syllabus.html"><span class="nav-icon">📚</span><span class="link-text">Syllabus</span></a></li>
+                            <li><a class="nav-link" href="resources.html"><span class="nav-icon">📖</span><span class="link-text">Resources</span></a></li>
+                        </ul>
+                    </nav>
+                </aside>
+
+                <div class="main-wrapper">
+                    <div class="w-full mx-auto px-6 py-8">
+                                <h1 class="text-3xl font-bold mb-6"><span class="nav-icon">📓</span><span class="ml-2">Class Notes</span></h1>
+
+                                <!-- Subject tabs (top) and units (dynamic) -->
+                                <nav id="subjectTabs" class="tabs flex gap-2 mb-4" aria-label="Subjects">
+                                        <!-- JS will render subject tabs here -->
+                                </nav>
+
+                                <main id="units" aria-live="polite">
+                                        <!-- JS will render units for the selected subject here -->
+                                </main> 
+
+                <!-- Template / Notes:
+                         Expected backend JSON schema (example):
+                         {
+                             "subjects": [
+                                 {
+                                     "name": "Subject 1",
+                                     "units": [
+                                         { "name": "Unit 1", "pdfs": [{"title":"Part 1","url":"/pdfs/s1_u1_p1.pdf"}, ...] },
+                                         ... (5 units)
+                                     ]
+                                 }, ... (6 subjects)
+                             ]
+                         }
+                           The page will try to fetch /api/pdfs (GET) and render lists into each unit.
+                -->
+
+        </div>
+
+        <script>
+        // Dynamic tabs + units behavior
+        let subjectsData = [];
+        const SUBJECT_COUNT = 6;
+        const UNITS_PER_SUBJECT = 5;
+        let activeSubject = 0;
+
+        function renderTabs() {
+            const tabs = document.getElementById('subjectTabs');
+            tabs.innerHTML = '';
+            subjectsData.forEach((subj, idx) => {
+                const btn = document.createElement('button');
+                btn.className = `tab px-3 py-1 rounded ${idx === activeSubject ? 'tab-active' : ''}`;
+                btn.textContent = subj.name || `Subject ${idx+1}`;
+                btn.dataset.index = idx;
+                btn.addEventListener('click', () => {
+                    activeSubject = idx;
+                    renderTabs();
+                    renderUnits();
+                });
+                tabs.appendChild(btn);
+            });
+        }
+
+        function getFilenameFromUrl(url) {
+            try {
+                const u = new URL(url, window.location.origin);
+                const parts = u.pathname.split('/').filter(Boolean);
+                return parts.length ? parts[parts.length - 1] : 'j.pdf';
+            } catch (e) {
+                // fallback: try simple split
+                const parts = String(url).split('/').filter(Boolean);
+                return parts.length ? parts[parts.length - 1] : 'j.pdf';
+            }
+        }
+
+        function renderUnits() {
+            const unitsContainer = document.getElementById('units');
+            unitsContainer.innerHTML = '';
+            const subj = subjectsData[activeSubject] || { name: `Subject ${activeSubject+1}`, units: [] };
+
+            // Wrap heading + units inside a section so .subject CSS rules apply
+            const section = document.createElement('section');
+            section.className = 'subject border rounded-lg p-4';
+
+            const heading = document.createElement('h2');
+            heading.className = 'text-xl font-semibold mb-4';
+            heading.textContent = subj.name || `Subject ${activeSubject+1}`;
+            section.appendChild(heading);
+
+            // Grid container for unit cards
+            const grid = document.createElement('div');
+            grid.className = 'unit-grid grid gap-4';
+            // make each unit occupy the full width (one per row)
+            grid.style.gridTemplateColumns = '1fr';
+
+            // Ensure exactly UNITS_PER_SUBJECT units
+            for (let u = 0; u < UNITS_PER_SUBJECT; u++) {
+                const unit = (subj.units && subj.units[u]) || { name: `Unit ${u+1}`, pdfs: [] };
+
+                const card = document.createElement('div');
+                card.className = 'unit-card bg-white rounded-lg p-4 shadow-sm';
+
+                const title = document.createElement('h3');
+                title.className = 'text-lg font-medium mb-2';
+                title.textContent = unit.name || `Unit ${u+1}`;
+                card.appendChild(title);
+
+                const list = document.createElement('ul');
+                list.className = 'pdf-list list-disc list-inside';
+
+                if (!unit.pdfs || unit.pdfs.length === 0) {
+                    const li = document.createElement('li');
+                    li.className = 'text-gray-600';
+                    li.textContent = 'No PDFs available for this unit.';
+                    list.appendChild(li);
+                } else {
+                    unit.pdfs.forEach((pdf, index) => {
+                        const li = document.createElement('li');
+                        const a = document.createElement('a');
+                        a.href = pdf.url;
+                        a.target = '_blank';
+                        a.rel = 'noopener noreferrer';
+                        // show filename (basename) or fallback to j.pdf
+                        const filename = getFilenameFromUrl(pdf.url || pdf);
+                        a.textContent = filename || 'j.pdf';
+                        a.className = 'text-blue-600 hover:underline';
+                        li.appendChild(a);
+                        list.appendChild(li);
+                    });
+                }
+
+                card.appendChild(list);
+                grid.appendChild(card);
+            }
+
+            section.appendChild(grid);
+            unitsContainer.appendChild(section);
+        }
+
+        async function fetchAndInit() {
+            try {
+                const resp = await fetch('/api/pdfs');
+                if (!resp.ok) throw new Error('Network response was not ok');
+                const data = await resp.json();
+                subjectsData = Array.isArray(data.subjects) ? data.subjects : [];
+            } catch (e) {
+                // fallback sample data
+                subjectsData = Array.from({length: SUBJECT_COUNT}).map((_, s) => ({
+                    name: `Subject ${s+1}`,
+                    units: Array.from({length: UNITS_PER_SUBJECT}).map((__, u) => ({
+                        name: `Unit ${u+1}`,
+                        pdfs: [
+                            { title: `Part 1 - S${s+1}U${u+1}`, url: `pdfs/s${s+1}_u${u+1}_p1.pdf` },
+                            { title: `Part 2 - S${s+1}U${u+1}`, url: `pdfs/s${s+1}_u${u+1}_p2.pdf` },
+                            { title: `Part 3 - S${s+1}U${u+1}`, url: `pdfs/s${s+1}_u${u+1}_p3.pdf` }
+                        ]
+                    }))
+                }));
+            }
+
+            // clamp activeSubject
+            if (activeSubject < 0 || activeSubject >= subjectsData.length) activeSubject = 0;
+            renderTabs();
+            renderUnits();
+        }
+
+        // Initialize
+        // Start with a minimal subjects array so UI renders quickly
+        subjectsData = Array.from({length: SUBJECT_COUNT}).map((_, i) => ({ name: `Subject ${i+1}`, units: [] }));
+        renderTabs();
+        renderUnits();
+        fetchAndInit();
+
+                // mark active nav link based on current location
+                (function markActiveNav(){
+                    const links = document.querySelectorAll('.left-nav .nav-link');
+                    const path = window.location.pathname.split('/').pop();
+                    links.forEach(a => {
+                        const href = a.getAttribute('href');
+                        if (href && href === path) {
+                            a.classList.add('nav-link-active');
+                        }
+                    });
+                })();
+        </script>
+</body>
+
+</html>
